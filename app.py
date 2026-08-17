@@ -93,59 +93,6 @@ def load_everything():
     return df, model, scaler, reference_df, model_feature_names, is_fair_model, model_source
 
 
-# def _build_demo_data_and_model(n=800, seed=42):
-#     """Synthetic fallback -- schema-matched to the real dataset's exact category values."""
-#     rng = np.random.default_rng(seed)
-#     cv = CATEGORY_VALUES
-
-#     df = pd.DataFrame(
-#         {
-#             "CustomerID": np.arange(1000, 1000 + n),
-#             "Tenure": rng.integers(0, 40, n),
-#             "PreferredLoginDevice": rng.choice(cv["PreferredLoginDevice"], n),
-#             "CityTier": rng.integers(1, 4, n),
-#             "WarehouseToHome": rng.integers(5, 40, n),
-#             "PreferredPaymentMode": rng.choice(cv["PreferredPaymentMode"], n),
-#             "Gender": rng.choice(cv["Gender"], n),
-#             "HourSpendOnApp": rng.integers(1, 6, n),
-#             "NumberOfDeviceRegistered": rng.integers(1, 6, n),
-#             "PreferedOrderCat": rng.choice(cv["PreferedOrderCat"], n),
-#             "SatisfactionScore": rng.integers(1, 6, n),
-#             "MaritalStatus": rng.choice(cv["MaritalStatus"], n),
-#             "NumberOfAddress": rng.integers(1, 10, n),
-#             "Complain": rng.integers(0, 2, n),
-#             "OrderAmountHikeFromlastYear": rng.integers(10, 30, n),
-#             "CouponUsed": rng.integers(0, 10, n),
-#             "OrderCount": rng.integers(0, 15, n),
-#             "DaySinceLastOrder": rng.integers(0, 30, n),
-#             "CashbackAmount": rng.integers(0, 300, n),
-#         }
-#     )
-#     df = engineer_features(df)
-
-#     risk_score = (
-#         (df["Complain"] * 2)
-#         + (df["DaySinceLastOrder"] / 10)
-#         - (df["OrderFrequency"] * 3)
-#         - (df["SatisfactionScore"] * 0.5)
-#         + rng.normal(0, 1.5, n)
-#     )
-#     df["Churn"] = (risk_score > risk_score.median()).astype(int)
-
-#     train_df = df.drop(columns=["CustomerID"])
-#     X = encode_categoricals(train_df.drop(columns=["Churn"]))
-#     y = train_df["Churn"]
-
-#     scaler = StandardScaler()
-#     X[NUMERIC_COLUMNS] = scaler.fit_transform(X[NUMERIC_COLUMNS])
-
-#     model = RandomForestClassifier(n_estimators=200, max_depth=8, random_state=seed)
-#     model.fit(X, y)
-#     model.feature_names_in_ = np.array(X.columns)
-
-#     return df, model, scaler
-
-
 (df, model, scaler, reference_df, model_feature_names,
  is_fair_model, model_source) = load_everything()
 
@@ -217,13 +164,9 @@ if page == "Dashboard":
 elif page == "Customer Analysis":
     st.title("Customer Analysis")
 
-    customer_id = st.selectbox("Select Customer", scored_df["CustomerID"].tolist())
-    analyze = st.button("Analyze Customer", type="primary")
-
-    if analyze or st.session_state.selected_customer == customer_id:
-        st.session_state.selected_customer = customer_id
-        customer_row = df[df["CustomerID"] == customer_id].iloc[0]
-
+    def run_analysis(customer_row: pd.Series):
+        """Shared prediction + explanation flow, used by both the dataset
+        picker and the manual-entry form below."""
         st.subheader("Customer Profile")
         p1, p2, p3, p4 = st.columns(4)
         p1.metric("Tenure", f"{customer_row['Tenure']} months")
@@ -265,6 +208,73 @@ elif page == "Customer Analysis":
         st.session_state.bucket = bucket
         st.session_state.drivers = drivers
         st.success("Analysis complete -- head to **AI Retention Strategy** to generate recommended actions.")
+
+    tab_existing, tab_manual = st.tabs(["Select Existing Customer", "Enter Customer Manually"])
+
+    with tab_existing:
+        customer_id = st.selectbox("Select Customer", scored_df["CustomerID"].tolist())
+        analyze = st.button("Analyze Customer", type="primary")
+
+        if analyze or st.session_state.selected_customer == customer_id:
+            st.session_state.selected_customer = customer_id
+            customer_row = df[df["CustomerID"] == customer_id].iloc[0]
+            run_analysis(customer_row)
+
+    with tab_manual:
+        st.caption("Enter a customer's details manually to score them without adding them to the dataset.")
+
+        with st.form("manual_customer_form"):
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                tenure = st.number_input("Tenure (months)", min_value=0, max_value=120, value=6)
+                city_tier = st.selectbox("City Tier", [1, 2, 3], index=0)
+                warehouse_to_home = st.number_input("Warehouse to Home Distance", min_value=0, max_value=200, value=15)
+                hour_spend_on_app = st.number_input("Hours Spent on App", min_value=0.0, max_value=24.0, value=3.0, step=0.5)
+                number_of_devices = st.number_input("Number of Devices Registered", min_value=1, max_value=10, value=3)
+                satisfaction_score = st.slider("Satisfaction Score", 1, 5, 3)
+            with c2:
+                number_of_address = st.number_input("Number of Addresses", min_value=1, max_value=20, value=2)
+                complain = st.selectbox("Filed a Complaint?", ["No", "Yes"], index=0)
+                order_amount_hike = st.number_input("Order Amount Hike From Last Year (%)", min_value=0, max_value=100, value=15)
+                coupon_used = st.number_input("Coupons Used", min_value=0, max_value=50, value=1)
+                order_count = st.number_input("Order Count", min_value=0, max_value=100, value=3)
+                day_since_last_order = st.number_input("Days Since Last Order", min_value=0, max_value=365, value=10)
+            with c3:
+                cashback_amount = st.number_input("Cashback Amount", min_value=0.0, max_value=2000.0, value=120.0, step=10.0)
+                preferred_login_device = st.selectbox("Preferred Login Device", CATEGORY_VALUES["PreferredLoginDevice"])
+                preferred_payment_mode = st.selectbox("Preferred Payment Mode", CATEGORY_VALUES["PreferredPaymentMode"])
+                gender = st.selectbox("Gender", CATEGORY_VALUES["Gender"])
+                prefered_order_cat = st.selectbox("Preferred Order Category", CATEGORY_VALUES["PreferedOrderCat"])
+                marital_status = st.selectbox("Marital Status", CATEGORY_VALUES["MaritalStatus"])
+
+            manual_submit = st.form_submit_button("Check Churn Risk", type="primary")
+
+        if manual_submit:
+            manual_row = pd.Series(
+                {
+                    "CustomerID": "Manual Entry",
+                    "Tenure": tenure,
+                    "PreferredLoginDevice": preferred_login_device,
+                    "CityTier": city_tier,
+                    "WarehouseToHome": warehouse_to_home,
+                    "PreferredPaymentMode": preferred_payment_mode,
+                    "Gender": gender,
+                    "HourSpendOnApp": hour_spend_on_app,
+                    "NumberOfDeviceRegistered": number_of_devices,
+                    "PreferedOrderCat": prefered_order_cat,
+                    "SatisfactionScore": satisfaction_score,
+                    "MaritalStatus": marital_status,
+                    "NumberOfAddress": number_of_address,
+                    "Complain": 1 if complain == "Yes" else 0,
+                    "OrderAmountHikeFromlastYear": order_amount_hike,
+                    "CouponUsed": coupon_used,
+                    "OrderCount": order_count,
+                    "DaySinceLastOrder": day_since_last_order,
+                    "CashbackAmount": cashback_amount,
+                }
+            )
+            st.session_state.selected_customer = None  # so switching tabs doesn't re-trigger the dataset picker
+            run_analysis(manual_row)
 
 
 # ----------------------------------------------------------------------------
