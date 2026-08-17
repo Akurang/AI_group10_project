@@ -1,5 +1,16 @@
-__pycache__/
+
 *.py
 .DS_Store
-.venv/
+
+
+# Jupyter Notebook checkpoints and autosaves
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# IPynb execution caches and local environments
+.virtual_documents/
+.pytest_cache/
+__pycache__/
+vnv/
+venv/
 .env
