@@ -1,22 +1,4 @@
-"""
-app.py -- E-Commerce Churn AI
 
-Dashboard, Customer Analysis, AI Retention Strategy, and About pages, built
-around the ACTUAL pipeline from final_project.ipynb + driver.ipynb:
-
-  Customer Data -> Preprocessing + Feature Engineering -> Random Forest
-                -> Churn Probability -> Local Explanation -> LLM
-                -> Retention Strategy
-
-Model: uses models/randomforest_fair.pkl if present (the audited version
-without Gender/MaritalStatus), otherwise falls back to models/churn_model.pkl
-(your current baseline model). A banner tells you which one is active.
-
-Scaler: requires models/scaler.pkl (see README -- your notebook didn't save
-this yet). Until it's added, the app runs in DEMO MODE with synthetic data
-and an approximate in-memory scaler so you can still click through the UI --
-predictions in that state will NOT match your real trained model.
-"""
 
 import os
 import sys
@@ -50,9 +32,9 @@ DATA_PATH_XLSX = os.path.join(os.path.dirname(__file__), "data", "Test Data.xlsx
 st.set_page_config(page_title="E-Commerce Churn AI", page_icon="🛒", layout="wide")
 
 
-# ----------------------------------------------------------------------------
-# DATA / MODEL LOADING
-# ----------------------------------------------------------------------------
+
+# load the data
+
 @st.cache_resource
 def load_everything():
     real_model, is_fair_model, model_source = load_model()
@@ -129,9 +111,8 @@ if not is_fair_model:
 
 
 
-# ----------------------------------------------------------------------------
-# PAGE: DASHBOARD
-# ----------------------------------------------------------------------------
+
+#  Dashboard
 if page == "Dashboard":
     st.title("Customer Churn Dashboard")
 
@@ -158,9 +139,9 @@ if page == "Dashboard":
     st.dataframe(attention, use_container_width=True, hide_index=True)
 
 
-# ----------------------------------------------------------------------------
-# PAGE: CUSTOMER ANALYSIS
-# ----------------------------------------------------------------------------
+
+# CUSTOMER ANALYSIS
+
 elif page == "Customer Analysis":
     st.title("Customer Analysis")
 
@@ -277,9 +258,9 @@ elif page == "Customer Analysis":
             run_analysis(manual_row)
 
 
-# ----------------------------------------------------------------------------
-# PAGE: AI RETENTION STRATEGY
-# ----------------------------------------------------------------------------
+
+# AI RETENTION STRATEGY
+
 elif page == "AI Retention Strategy":
     st.title("AI Retention Strategy")
 
@@ -302,9 +283,9 @@ elif page == "AI Retention Strategy":
             st.markdown(strategy)
 
 
-# ----------------------------------------------------------------------------
-# PAGE: ABOUT
-# ----------------------------------------------------------------------------
+
+# ABOUT
+
 else:
     st.title("About / How It Works")
 
@@ -312,7 +293,7 @@ else:
         "This deployment uses the **fairness-audited model** (`randomforest_fair.pkl`), "
         "trained without `Gender` or `MaritalStatus`, per Section 8.3 of the project notebook."
         if is_fair_model else
-        "⚠️ This deployment is currently using the **baseline model**, which still includes "
+        "This deployment is currently using the **baseline model**, which still includes "
         "`Gender` and `MaritalStatus`. Section 8 of the project notebook found this version "
         "misses roughly 48% of churning married customers versus 17% of single customers "
         "-- a real fairness gap. The audit also found removing these two fields improved "

@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-# Exact categorical columns one-hot encoded in the notebook (Section 3.6)
+
 CATEGORICAL_COLUMNS = [
     "PreferredLoginDevice",
     "PreferredPaymentMode",
@@ -11,9 +11,7 @@ CATEGORICAL_COLUMNS = [
     "MaritalStatus",
 ]
 
-# Exact category values observed in the dataset (post payment-mode standardization
-# from Section 3.5: CC -> Credit Card, COD -> Cash on Delivery). Used to build
-# realistic demo data and to validate dropdown choices in the UI.
+
 CATEGORY_VALUES = {
     "PreferredLoginDevice": ["Computer", "Mobile Phone", "Phone"],
     "PreferredPaymentMode": ["Cash on Delivery", "Credit Card", "Debit Card", "E wallet", "UPI"],
@@ -22,8 +20,7 @@ CATEGORY_VALUES = {
     "MaritalStatus": ["Divorced", "Married", "Single"],
 }
 
-# Exact 17 numeric columns scaled in the notebook (Section 5.2) -- note Complain
-# is included even though it's binary, matching the original notebook exactly.
+
 NUMERIC_COLUMNS = [
     "Tenure",
     "CityTier",
@@ -62,17 +59,7 @@ def encode_categoricals(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def prepare_model_input(customer_row: pd.Series, scaler, model_feature_names) -> pd.DataFrame:
-    """
-    Turns one customer's raw row into the exact matrix the model expects:
-    engineer features -> one-hot encode (drop_first=True) -> scale the same
-    17 numeric columns the training scaler was fit on -> align to the
-    model's actual trained column order (model_feature_names, taken from
-    model.feature_names_in_), filling any missing dummy columns with 0.
 
-    If `scaler` is None (real scaler.pkl not yet provided), numeric columns
-    are left unscaled and the caller is responsible for showing a warning --
-    predictions in that case will NOT match the trained model exactly.
-    """
     row = customer_row.to_frame().T
     row = engineer_features(row)
     row = encode_categoricals(row)

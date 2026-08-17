@@ -2,11 +2,7 @@ import re
 
 import os
 
-# Your own prompt from driver.ipynb (EPXLANAION_PROMPT), lightly adapted so it
-# receives the already-computed probability/explanation instead of asking the
-# LLM to interpret a raw dataframe + a bare 0/1 label itself.
 
-# SYSTEM_PROMPT = "You are a business advisor for an ecommerce chain with an expertise in senior customer retention manager."
 
 SYSTEM_PROMPT = ("You are a business advisor for an ecommerce chain specializing in customer retention. "
     "CRITICAL: Do NOT use <think> tags. Do NOT show your internal reasoning or thinking process. "
@@ -88,7 +84,7 @@ def generate_retention_strategy(customer_profile: dict, probability: float, risk
 
     
     except Exception as e:
-        # Change 'error' to 'str(e)' so Python knows what variable to read
+        # Change 'error' to 'str(e)' so the error is better understood
         print(f"DEBUG: Groq connection failed: {str(e)}")
         driver_names = [d["feature"] if isinstance(d, dict) else str(d) for d in drivers]
         return (

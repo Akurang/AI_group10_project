@@ -1,19 +1,8 @@
-"""
-explanation.py
 
-Local explanation for a single customer's prediction -- this is your own
-`explain_prediction` from Section 8.5 of final_project.ipynb (cell 108),
-reused as-is: for each feature, swap in the "typical" (median) value and
-measure how much the churn probability drops. A large drop means that
-feature was driving the prediction. This is the exact method your notebook
-used, so results here match what you'd get re-running that cell.
-"""
 
 import pandas as pd
 
-# Features the business can actually act on -- matches your notebook's
-# own note in Section 8.5: "Tenure does not [suggest an action] -- telling
-# a customer 'you are at risk because you are new' is not useful."
+# Features the business can actually act on
 ACTIONABLE_FEATURES = {
     "Complain",
     "DaySinceLastOrder",
@@ -51,16 +40,7 @@ FRIENDLY_NAMES = {
 
 
 def explain_prediction(model, model_input_df: pd.DataFrame, reference_df: pd.DataFrame, top_n: int = 4):
-    """
-    Exact method from final_project.ipynb cell 108: for each feature, replace
-    the customer's value with the "typical" value (median across the
-    reference dataset) and measure how far the predicted probability drops.
 
-    model_input_df: the single preprocessed/scaled row fed to the model
-    reference_df: the same preprocessed dataset for ALL customers, used to
-                  compute the typical/median value for each feature
-    Returns a list of dicts: [{feature, friendly_name, contribution, actionable}, ...]
-    """
     customer = model_input_df.iloc[0]
     typical_values = reference_df.reindex(columns=model_input_df.columns, fill_value=0).median()
 
@@ -80,7 +60,7 @@ def explain_prediction(model, model_input_df: pd.DataFrame, reference_df: pd.Dat
         if contribution <= 0:
             continue
         if feature not in FRIENDLY_NAMES:
-            continue  # skip one-hot dummy noise, keep explanations readable
+            continue  
         results.append(
             {
                 "feature": feature,
