@@ -1,11 +1,16 @@
-
+import re
 
 import os
 
 # Your own prompt from driver.ipynb (EPXLANAION_PROMPT), lightly adapted so it
 # receives the already-computed probability/explanation instead of asking the
 # LLM to interpret a raw dataframe + a bare 0/1 label itself.
-SYSTEM_PROMPT = "You are a business advisor for an ecommerce chain."
+
+# SYSTEM_PROMPT = "You are a business advisor for an ecommerce chain with an expertise in senior customer retention manager."
+
+SYSTEM_PROMPT = ("You are a business advisor for an ecommerce chain specializing in customer retention. "
+    "CRITICAL: Do NOT use <think> tags. Do NOT show your internal reasoning or thinking process. "
+    "Provide your final answer immediately, structured strictly into the 3 requested points.")
 
 USER_PROMPT_TEMPLATE = """Take the following customer's profile and churn result (1 = leave, 0 = stay) and output:
 1. Reasons why they might leave if value is 1, or reasons they might stay if value is 0
@@ -22,7 +27,9 @@ Churn probability: {probability:.0%}
 
 Top contributing factors (from local explanation):
 {driver_lines}
+
 """
+
 
 
 def _build_user_prompt(customer_profile: dict, probability: float, risk_label: str, drivers: list) -> str:
@@ -57,15 +64,27 @@ def generate_retention_strategy(customer_profile: dict, probability: float, risk
 
         client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
         response = client.chat.completions.create(
-            model="qwen/qwen3.6-27b",
+            model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=1,
-            max_tokens=500,
+            temperature=0.7,
+            max_tokens=700,
         )
-        return response.choices[0].message.content
+        raw_content = response.choices[0].message.content
+        clean_content = re.sub(r"<think>.*?(?:</think>|$)", "", raw_content, flags=re.DOTALL).strip()
+
+        # If the model spent all its tokens thinking and returned nothing, give a clean UI message
+        if not clean_content:
+            return (
+                "⚠️ **The AI spent too long analyzing the data.**\n\n"
+                "Please click the **Generate AI Strategy** button again to retry. "
+                "The system has adjusted the parameters to force a direct answer."
+            )
+
+        return clean_content
+    
 
     
     except Exception as e:
@@ -73,45 +92,11 @@ def generate_retention_strategy(customer_profile: dict, probability: float, risk
         print(f"DEBUG: Groq connection failed: {str(e)}")
         driver_names = [d["feature"] if isinstance(d, dict) else str(d) for d in drivers]
         return (
-            f"⚠️ **Note: AI recommendation engine is currently offline.**\n\n"
+            f" **Note: AI recommendation engine is currently offline.**\n\n"
             f"**Automated Action Plan for {risk_label}:**\n"
             
             f"2. System logs for error: `{str(e)}`"
         )
-        print(f"DEBUG: Groq connection failed: {str(e)}")
+
         
 
-
-
-    driver_names = [d["friendly_name"] for d in drivers if d.get("actionable")] or [
-        d["friendly_name"] for d in drivers
-    ]
-    header = "**[Demo mode -- no GROQ_API_KEY set, showing a template response]**\n\n"
-    if error:
-        header = f"**[LLM call failed: {error} -- showing a template response]**\n\n"
-
-    if risk_label == "HIGH":
-        body = f"""**Why this customer may churn**
-This customer's risk factors center on {', '.join(driver_names[:2]) if driver_names else 'reduced recent engagement'}, suggesting declining satisfaction with the service.
-
-**Recommended actions**
-1. Offer a personalized discount or cashback bonus on their next order
-2. Proactively follow up on any unresolved complaint
-3. Recommend products related to their previous purchase category
-4. Enroll them in a targeted re-engagement email/SMS campaign
-
-**Business advice**
-Prioritize this customer for immediate outreach -- their predicted churn probability exceeds the intervention threshold."""
-    else:
-        body = """**Why this customer is likely to stay**
-This customer's behavior looks broadly consistent with the retained-customer population -- steady ordering activity and no major red flags.
-
-**Recommended actions**
-1. Continue standard loyalty engagement (points, seasonal offers)
-2. Monitor for any drop in order frequency
-3. Consider light-touch upsell based on purchase history
-
-**Business advice**
-No urgent action needed; keep this customer in the standard engagement track."""
-
-    return header + body

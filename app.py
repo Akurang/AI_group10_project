@@ -44,8 +44,8 @@ from prediction import predict_churn, risk_bucket, load_model, load_scaler, DEPL
 from explanation import explain_prediction
 from llm import generate_retention_strategy
 
-DATA_PATH_CSV = os.path.join(os.path.dirname(__file__), "data", "ecommerce.csv")
-DATA_PATH_XLSX = os.path.join(os.path.dirname(__file__), "data", "E Commerce Dataset.xlsx")
+# DATA_PATH_CSV = os.path.join(os.path.dirname(__file__), "data", "ecommerce.csv")
+DATA_PATH_XLSX = os.path.join(os.path.dirname(__file__), "data", "Test Data.xlsx")
 
 st.set_page_config(page_title="E-Commerce Churn AI", page_icon="🛒", layout="wide")
 
@@ -59,48 +59,30 @@ def load_everything():
     real_scaler = load_scaler()
 
     real_data = None
-    if os.path.exists(DATA_PATH_CSV):
-        real_data = pd.read_csv(DATA_PATH_CSV)
-    elif os.path.exists(DATA_PATH_XLSX):
-        real_data = pd.read_excel(DATA_PATH_XLSX, sheet_name="E Comm")
+    
+    real_data = pd.read_excel(DATA_PATH_XLSX, sheet_name="E Comm")
 
-    demo_data = real_data is None
-    demo_scaler = real_scaler is None
 
-    if real_model is None:
-        # No model at all -- fall back fully to a synthetic demo model
-        df, model, scaler = _build_demo_data_and_model()
-        is_fair_model = False
-        model_source = "(demo -- no churn_model.pkl found)"
-        demo_data = True
-        demo_scaler = True
-    else:
-        model = real_model
-        if real_data is not None:
-            df = real_data.copy()
-            if "Tenure" in df.columns:
-                df["HourSpendOnApp"] = df["HourSpendOnApp"].fillna(df["HourSpendOnApp"].mean())
-                for col in ["Tenure", "WarehouseToHome", "OrderAmountHikeFromlastYear",
-                            "CouponUsed", "OrderCount", "DaySinceLastOrder"]:
-                    if col in df.columns:
-                        df[col] = df[col].fillna(df[col].median())
-            if "PreferredPaymentMode" in df.columns:
-                df["PreferredPaymentMode"] = df["PreferredPaymentMode"].replace(
-                    {"CC": "Credit Card", "COD": "Cash on Delivery"}
-                )
-            if "CustomerID" not in df.columns:
-                df.insert(0, "CustomerID", np.arange(1000, 1000 + len(df)))
-        else:
-            df, _, _ = _build_demo_data_and_model()
 
-        if real_scaler is not None:
-            scaler = real_scaler
-        else:
-            # Approximate fallback: fit a scaler on whatever data we have.
-            # This will NOT match the real training scaler -- flagged in the UI.
-            scaler = StandardScaler()
-            fit_df = engineer_features(df)
-            scaler.fit(fit_df[NUMERIC_COLUMNS])
+    model = real_model
+    if real_data is not None:
+        df = real_data.copy()
+        if "Tenure" in df.columns:
+            df["HourSpendOnApp"] = df["HourSpendOnApp"].fillna(df["HourSpendOnApp"].mean())
+            for col in ["Tenure", "WarehouseToHome", "OrderAmountHikeFromlastYear",
+                        "CouponUsed", "OrderCount", "DaySinceLastOrder"]:
+                if col in df.columns:
+                    df[col] = df[col].fillna(df[col].median())
+        if "PreferredPaymentMode" in df.columns:
+            df["PreferredPaymentMode"] = df["PreferredPaymentMode"].replace(
+                {"CC": "Credit Card", "COD": "Cash on Delivery"}
+            )
+        if "CustomerID" not in df.columns:
+            df.insert(0, "CustomerID", np.arange(1000, 1000 + len(df)))
+
+    if real_scaler is not None:
+        scaler = real_scaler
+
 
     df = engineer_features(df) if "OrderFrequency" not in df.columns else df
     model_feature_names = getattr(model, "feature_names_in_", None)
@@ -108,64 +90,64 @@ def load_everything():
     ref_rows = [prepare_model_input(row, scaler, model_feature_names) for _, row in df.iterrows()]
     reference_df = pd.concat(ref_rows, ignore_index=True) if ref_rows else pd.DataFrame()
 
-    return df, model, scaler, reference_df, model_feature_names, is_fair_model, model_source, demo_data, demo_scaler
+    return df, model, scaler, reference_df, model_feature_names, is_fair_model, model_source
 
 
-def _build_demo_data_and_model(n=800, seed=42):
-    """Synthetic fallback -- schema-matched to the real dataset's exact category values."""
-    rng = np.random.default_rng(seed)
-    cv = CATEGORY_VALUES
+# def _build_demo_data_and_model(n=800, seed=42):
+#     """Synthetic fallback -- schema-matched to the real dataset's exact category values."""
+#     rng = np.random.default_rng(seed)
+#     cv = CATEGORY_VALUES
 
-    df = pd.DataFrame(
-        {
-            "CustomerID": np.arange(1000, 1000 + n),
-            "Tenure": rng.integers(0, 40, n),
-            "PreferredLoginDevice": rng.choice(cv["PreferredLoginDevice"], n),
-            "CityTier": rng.integers(1, 4, n),
-            "WarehouseToHome": rng.integers(5, 40, n),
-            "PreferredPaymentMode": rng.choice(cv["PreferredPaymentMode"], n),
-            "Gender": rng.choice(cv["Gender"], n),
-            "HourSpendOnApp": rng.integers(1, 6, n),
-            "NumberOfDeviceRegistered": rng.integers(1, 6, n),
-            "PreferedOrderCat": rng.choice(cv["PreferedOrderCat"], n),
-            "SatisfactionScore": rng.integers(1, 6, n),
-            "MaritalStatus": rng.choice(cv["MaritalStatus"], n),
-            "NumberOfAddress": rng.integers(1, 10, n),
-            "Complain": rng.integers(0, 2, n),
-            "OrderAmountHikeFromlastYear": rng.integers(10, 30, n),
-            "CouponUsed": rng.integers(0, 10, n),
-            "OrderCount": rng.integers(0, 15, n),
-            "DaySinceLastOrder": rng.integers(0, 30, n),
-            "CashbackAmount": rng.integers(0, 300, n),
-        }
-    )
-    df = engineer_features(df)
+#     df = pd.DataFrame(
+#         {
+#             "CustomerID": np.arange(1000, 1000 + n),
+#             "Tenure": rng.integers(0, 40, n),
+#             "PreferredLoginDevice": rng.choice(cv["PreferredLoginDevice"], n),
+#             "CityTier": rng.integers(1, 4, n),
+#             "WarehouseToHome": rng.integers(5, 40, n),
+#             "PreferredPaymentMode": rng.choice(cv["PreferredPaymentMode"], n),
+#             "Gender": rng.choice(cv["Gender"], n),
+#             "HourSpendOnApp": rng.integers(1, 6, n),
+#             "NumberOfDeviceRegistered": rng.integers(1, 6, n),
+#             "PreferedOrderCat": rng.choice(cv["PreferedOrderCat"], n),
+#             "SatisfactionScore": rng.integers(1, 6, n),
+#             "MaritalStatus": rng.choice(cv["MaritalStatus"], n),
+#             "NumberOfAddress": rng.integers(1, 10, n),
+#             "Complain": rng.integers(0, 2, n),
+#             "OrderAmountHikeFromlastYear": rng.integers(10, 30, n),
+#             "CouponUsed": rng.integers(0, 10, n),
+#             "OrderCount": rng.integers(0, 15, n),
+#             "DaySinceLastOrder": rng.integers(0, 30, n),
+#             "CashbackAmount": rng.integers(0, 300, n),
+#         }
+#     )
+#     df = engineer_features(df)
 
-    risk_score = (
-        (df["Complain"] * 2)
-        + (df["DaySinceLastOrder"] / 10)
-        - (df["OrderFrequency"] * 3)
-        - (df["SatisfactionScore"] * 0.5)
-        + rng.normal(0, 1.5, n)
-    )
-    df["Churn"] = (risk_score > risk_score.median()).astype(int)
+#     risk_score = (
+#         (df["Complain"] * 2)
+#         + (df["DaySinceLastOrder"] / 10)
+#         - (df["OrderFrequency"] * 3)
+#         - (df["SatisfactionScore"] * 0.5)
+#         + rng.normal(0, 1.5, n)
+#     )
+#     df["Churn"] = (risk_score > risk_score.median()).astype(int)
 
-    train_df = df.drop(columns=["CustomerID"])
-    X = encode_categoricals(train_df.drop(columns=["Churn"]))
-    y = train_df["Churn"]
+#     train_df = df.drop(columns=["CustomerID"])
+#     X = encode_categoricals(train_df.drop(columns=["Churn"]))
+#     y = train_df["Churn"]
 
-    scaler = StandardScaler()
-    X[NUMERIC_COLUMNS] = scaler.fit_transform(X[NUMERIC_COLUMNS])
+#     scaler = StandardScaler()
+#     X[NUMERIC_COLUMNS] = scaler.fit_transform(X[NUMERIC_COLUMNS])
 
-    model = RandomForestClassifier(n_estimators=200, max_depth=8, random_state=seed)
-    model.fit(X, y)
-    model.feature_names_in_ = np.array(X.columns)
+#     model = RandomForestClassifier(n_estimators=200, max_depth=8, random_state=seed)
+#     model.fit(X, y)
+#     model.feature_names_in_ = np.array(X.columns)
 
-    return df, model, scaler
+#     return df, model, scaler
 
 
 (df, model, scaler, reference_df, model_feature_names,
- is_fair_model, model_source, demo_data, demo_scaler) = load_everything()
+ is_fair_model, model_source) = load_everything()
 
 
 @st.cache_data(show_spinner=False)
@@ -197,17 +179,7 @@ if not is_fair_model:
         "married churners than single ones. Drop `randomforest_fair.pkl` into "
         "`models/` to switch to the audited version automatically."
     )
-if demo_scaler:
-    st.sidebar.error(
-        "**scaler.pkl not found**\n\nUsing an approximate scaler fit on the "
-        "loaded data instead of your real training scaler. Predictions will "
-        "NOT match your notebook until you add `models/scaler.pkl` (see README)."
-    )
-if demo_data:
-    st.sidebar.info("Using synthetic demo data -- add `data/ecommerce.csv` or `data/E Commerce Dataset.xlsx` for the real dataset.")
 
-if "selected_customer" not in st.session_state:
-    st.session_state.selected_customer = None
 
 
 # ----------------------------------------------------------------------------
